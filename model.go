@@ -3,6 +3,7 @@ package gorgo
 import (
 	"github.com/rgobbo/fileutils"
 	"github.com/spf13/cast"
+	"strings"
 )
 
 type model struct {
@@ -12,10 +13,10 @@ type model struct {
 
 type table struct {
 	Name string
-	Fields []fields
+	Fields []field
 }
 
-type fields struct {
+type field struct {
 	Name string
 	Type string
 	Autoincrement bool
@@ -24,21 +25,38 @@ type fields struct {
 	Alias string
 }
 
+type modelConfig struct {
+	Schema string
+	Tables []tableConfig
+}
+
+type tableConfig struct {
+	Name string
+	Fields []string
+}
+
 func (m* model) LoadFile(path string) error{
-	var obj map[string] interface{}
-	err := fileutils.LoadJson(path, &obj)
+	var conf modelConfig
+	err := fileutils.LoadJson(path, &conf)
 	if err != nil{
 		return err
 	}
 
-	m.Schema = cast.ToString(obj["schema"])
-
-	tables := cast.ToSlice(obj["tables"])
-	for _ ,t := range tables {
-		newt := table{}
-		newt.Name = cast.ToString(t["name"])
-
+	m.Schema = conf.Schema
+	tables := [] table{}
+	for _ ,t := range conf.Tables{
+		newTable := table{}
+		fields := []field{}
+		for _, s := range t.Fields {
+			newField := field{}
+			parts := strings.Split(s," ")
+			newField.Name = parts[0]
+			newField.Type = parts[1]
+			fields = append(fields,newField)
+		}
+		tables = append(tables,newTable)
 	}
+	m.Tables = tables
 
 	return nil
 }
