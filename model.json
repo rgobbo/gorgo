@@ -1,0 +1,15 @@
+{
+  "schema" : "nomebanco",
+  "tables" :[
+    {
+      "name": "user",
+      "fields": [
+        "_id object autoincrement",
+        "name string",
+        "email string unique",
+        "created Date default=now",
+        "updated Date alias=Updata"
+      ]
+    }
+  ]
+}

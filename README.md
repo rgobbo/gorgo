@@ -1,2 +1,4 @@
 # gorgo
-Generic ORM for Golang
+**G**eneric **OR**M for **Go**lang
+
+Under Contruction
