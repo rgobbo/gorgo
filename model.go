@@ -2,7 +2,6 @@ package gorgo
 
 import (
 	"github.com/rgobbo/fileutils"
-	"github.com/spf13/cast"
 	"strings"
 )
 
