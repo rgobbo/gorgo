@@ -1,14 +1,18 @@
 {
-  "schema" : "nomebanco",
+  "schema" : "db-name",
   "tables" :[
     {
       "name": "user",
       "fields": [
-        "_id object autoincrement",
-        "name string",
-        "email string unique",
-        "created Date default=now",
-        "updated Date alias=Updata"
+        "_id,object,autoincrement",
+        "name,string,minlen=2,maxlen=15,required",
+        "email, string, unique , validation=isEmail",
+        "cpf, string, maxlen=11 , validation=isCpf",
+        "cnpj, string, validation=isCnpj",
+        "age, string, maxlen=11 , validation=isNumber",
+        "teste, string, validation=isAlphaNumeric",
+        "created, Date ,default=now",
+        "updated, Date ,alias=Updata"
       ]
     }
   ]

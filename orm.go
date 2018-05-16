@@ -10,11 +10,16 @@ type DB struct {
 	DialectDB Dialect
 }
 
+type FuncMap map[string]interface{}
+
 func NewDB(config ConfigDB) (*DB, error) {
 	dbtype := config.Type
 	if dbtype == "" {
 		return nil, fmt.Errorf("DB_TYPE not defined.")
 	}
+
+	config.Validations = GetFunctions()
+
 	switch dbtype {
 	case "mongo":
 		dialect := &MongoDialect{}
@@ -33,8 +38,10 @@ func NewDB(config ConfigDB) (*DB, error) {
 	default:
 		return nil, fmt.Errorf("[WARNING] dbtype not found", nil)
 	}
+
 	return nil, nil
 }
+
 
 
 func (d *DB) Create(collection string, data JSONDoc) error {

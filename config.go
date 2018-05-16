@@ -12,5 +12,14 @@ type ConfigDB struct {
 	MaxOpen int
 	UseSSL bool
 	ShowSQL bool
+	ModelFile string
+	SyncDB string
+	WatchModel bool
+	Validations FuncMap
 }
 
+func (c *ConfigDB) AddValidations (fn FuncMap) {
+	for s, f := range fn {
+		c.Validations[s] = f
+	}
+}

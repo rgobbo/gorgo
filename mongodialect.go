@@ -7,15 +7,35 @@ import (
 
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"github.com/rgobbo/watchfy"
+	"log"
 )
 
 //MySQLDialect - dialect for mysql database
 type MongoDialect struct {
 	Session *mgo.Session
 	DBName  string
+	Model  *model
 }
 
 func (m *MongoDialect) InitDB(config ConfigDB) error {
+
+	if config.ModelFile != "" {
+		err := m.Model.LoadFile(config.ModelFile)
+		if err != nil {
+			return err
+		}
+		if config.WatchModel == true {
+			go watchfy.NewWatcher([]string{config.ModelFile}, true, func(filename string){
+				m.Model = new(model)
+				err := m.Model.LoadFile(config.ModelFile)
+				if err != nil {
+					log.Println(err)
+				}
+			})
+		}
+	}
+
 	servers := config.Servers
 	dbname := config.Database
 	user := config.User
@@ -41,6 +61,7 @@ func (m *MongoDialect) InitDB(config ConfigDB) error {
 	// Optional. Switch the session to a monotonic behavior.
 	session.SetMode(mgo.Monotonic, true)
 	m.Session = session
+
 
 	m.DBName = dbname
 	return nil

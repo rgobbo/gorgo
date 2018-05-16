@@ -7,14 +7,36 @@ import (
 	"time"
 	"encoding/json"
 	"github.com/spf13/cast"
+	"github.com/rgobbo/watchfy"
 	"fmt"
+	"log"
 )
 
 type LocalDialect struct {
 	DB *buntdb.DB
+	Model  *model
+	Config ConfigDB
 }
 
 func (s *LocalDialect) InitDB(config ConfigDB) error {
+	if config.ModelFile != "" {
+		s.Model = new(model)
+		err := s.Model.LoadFile(config.ModelFile)
+		if err != nil {
+			return err
+		}
+		if config.WatchModel == true {
+			go watchfy.NewWatcher([]string{config.ModelFile}, true, func(filename string){
+				s.Model = new(model)
+				err := s.Model.LoadFile(config.ModelFile)
+				if err != nil {
+					log.Println(err)
+				}
+			})
+		}
+
+	}
+
 	server := config.Server
 	db, err := buntdb.Open(server)
 	if err != nil {
@@ -22,6 +44,9 @@ func (s *LocalDialect) InitDB(config ConfigDB) error {
 	}
 	s.DB = db
 	err = s.generateIndexes()
+
+	s.Config = config
+
 	return err
 }
 
@@ -95,15 +120,33 @@ func (s *LocalDialect) Count(collection string) (int, error) {
 
 }
 
+
 func (s *LocalDialect) Create(collection string, data JSONDoc) error {
 	id := bson.NewObjectId()
 	sid := id.Hex()
 	data["_id"] = sid
 	key := collection + ":" + sid
+	uniques := []string{}
 
 	data["_created"] = time.Now()
 
-	err := s.DB.Update(func(tx *buntdb.Tx) error {
+	err :=  validateFields(collection, data, s.Model, s.Config.Validations)
+	if err != nil {
+		return err
+	}
+
+	if val, ok := s.Model.Tables[collection]; ok {
+		for _, f := range val.Fields {
+			if f.Unique == true {
+				if data[f.Name] == nil {
+					return fmt.Errorf("Unique field %s, could not be null", f.Name)
+				}
+				uniques = append(uniques, collection + ":" + cast.ToString(data[f.Name]))
+			}
+		}
+	}
+
+	err = s.DB.Update(func(tx *buntdb.Tx) error {
 
 		_,_,err := tx.Set("BUCKETS:" + collection,collection,nil)
 		if err != nil {
@@ -121,12 +164,25 @@ func (s *LocalDialect) Create(collection string, data JSONDoc) error {
 				return err
 			}
 		}
+
+		for _,s := range uniques {
+			v, err := tx.Get(s,true)
+			if err != nil {
+				return fmt.Errorf("Error getting uniques %v", err)
+			}
+			if v != "" {
+				return fmt.Errorf("Unique key violated - %s ", v)
+			} else {
+				_ , _ ,err = tx.Set(s,sid,nil)
+				if err != nil {
+					return err
+				}
+			}
+		}
 		_ , _ ,err = tx.Set(key,data.ToString(),nil)
 		if err != nil {
 			return err
 		}
-
-
 
 		return err
 	})
@@ -157,16 +213,49 @@ func (s *LocalDialect) GetById(collection string, id string) (JSONDoc, error) {
 }
 
 
-func (s *LocalDialect) Update(tableName string, data JSONDoc) error {
+func (s *LocalDialect) Update(collection string, data JSONDoc) error {
 	sid := ""
 	if data["_id"] != nil {
 		sid = cast.ToString(data["_id"])
 	} else {
 		return fmt.Errorf("Field _id could not be null")
 	}
-	key := tableName + ":" + sid
+	key := collection + ":" + sid
+	uniques := []string{}
 
-	err := s.DB.Update(func(tx *buntdb.Tx) error {
+	err :=  validateFields(collection, data, s.Model, s.Config.Validations)
+	if err != nil {
+		return err
+	}
+
+	if val, ok := s.Model.Tables[collection]; ok {
+		for _, f := range val.Fields {
+			if f.Unique == true {
+				if data[f.Name] == nil {
+					return fmt.Errorf("Unique field %s, could not be null", f.Name)
+				}
+				uniques = append(uniques, collection + ":" + cast.ToString(data[f.Name]))
+			}
+		}
+	}
+
+
+	err = s.DB.Update(func(tx *buntdb.Tx) error {
+
+		for _,s := range uniques {
+			v, err := tx.Get(s,true)
+			if err != nil {
+				return fmt.Errorf("Error getting uniques %v", err)
+			}
+			if v != "" && v != cast.ToString(data["_id"]) {
+				return fmt.Errorf("Unique key violated - %s ", v)
+			} else {
+				_ , _ ,err = tx.Set(s,sid,nil)
+				if err != nil {
+					return err
+				}
+			}
+		}
 
 		_, _ ,err := tx.Set(key, data.ToString(),nil)
 		if err != nil {
