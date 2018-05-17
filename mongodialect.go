@@ -80,12 +80,12 @@ func (m *MongoDialect) Count(collection string) (int, error) {
 	return c.Count()
 }
 
-func (m *MongoDialect) Create(collection string, json JSONDoc) error {
+func (m *MongoDialect) Create(collection string, json JSONDoc) (JSONDoc,error) {
 	ss := m.Session.Copy()
 	defer ss.Close()
 	c := ss.DB(m.DBName).C(collection)
-	//json["ID"] = bson.NewObjectId()
-	return c.Insert(json)
+	json["_id"] = bson.NewObjectId()
+	return json,c.Insert(json)
 }
 
 func (m *MongoDialect) GetById(collection string, id string) (JSONDoc, error) {

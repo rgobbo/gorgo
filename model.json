@@ -9,7 +9,7 @@
         "email, string, unique , validation=isEmail",
         "cpf, string, maxlen=11 , validation=isCpf",
         "cnpj, string, validation=isCnpj",
-        "age, string, maxlen=11 , validation=isNumber",
+        "age, int, maxlen=11 , validation=isNumber",
         "teste, string, validation=isAlphaNumeric",
         "created, Date ,default=now",
         "updated, Date ,alias=Updata"

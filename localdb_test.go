@@ -1,8 +1,13 @@
 package gorgo
 
-import "testing"
+import (
+	"testing"
+	"time"
+	"github.com/spf13/cast"
+)
 
-func TestLocalDialect_InitDB(t *testing.T) {
+
+func TestLocalDialect_Create(t *testing.T) {
 	config := ConfigDB{}
 	config.ModelFile = "model.json"
 	config.Type = "localdb"
@@ -13,11 +18,47 @@ func TestLocalDialect_InitDB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("DB created : %s", config.Server)
-	err = DB.Close()
+	t.Logf("Open DB success !!")
+	defer DB.Close()
+
+
+	// Creating user
+	user := JSONDoc{}
+	user["name"] = "john Doe"
+	user["email"] = "jd@test.com"
+	user["cpf"] = "23749817030"
+	user["cnpj"] = "78470985000106"
+	user["age"] = 25
+	user["teste"] = "asdfgrreqw653ter"
+	user["created"] = time.Now()
+	user["updated"] = time.Now()
+
+	userRet, err := DB.Create("user", user)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("DB Create Error : ", err)
 	}
-	t.Log("DB close")
+	t.Logf("User created id[ %v ] ", userRet["_id"])
+
+
+	list, err := DB.GetAll("user",1,6,"")
+	if err != nil {
+		t.Fatal("DB GetAll Error : ", err)
+	}
+	t.Log("User list:", len(list))
+
+	userUpdate := list[0]
+	userUpdate["name"] = "upd john doe"
+
+	err = DB.Update("user", userUpdate)
+	if err != nil {
+		t.Fatal("DB Update Error : ", err)
+	}
+	t.Logf("User updated !!")
+
+	err = DB.Delete("user", cast.ToString(userUpdate["_id"]))
+	if err != nil {
+		t.Fatal("DB Delete Error : ", err)
+	}
+	t.Logf("User deleted !!")
 
 }

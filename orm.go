@@ -44,7 +44,7 @@ func NewDB(config ConfigDB) (*DB, error) {
 
 
 
-func (d *DB) Create(collection string, data JSONDoc) error {
+func (d *DB) Create(collection string, data JSONDoc) (JSONDoc, error) {
 	return d.DialectDB.Create(collection, data)
 }
 
@@ -74,3 +74,9 @@ func (d *DB) GetAll(collection string, page int, qtd int, sorted string) ([]JSON
 	return d.DialectDB.GetAll(collection, page, qtd, sorted)
 
 }
+
+func (d *DB) GetByID(collection string, id string) (JSONDoc, error) {
+	return d.DialectDB.GetById(collection,id)
+
+}
+

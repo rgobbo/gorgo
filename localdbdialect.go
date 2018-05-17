@@ -10,6 +10,7 @@ import (
 	"github.com/rgobbo/watchfy"
 	"fmt"
 	"log"
+	"github.com/tidwall/gjson"
 )
 
 type LocalDialect struct {
@@ -121,27 +122,28 @@ func (s *LocalDialect) Count(collection string) (int, error) {
 }
 
 
-func (s *LocalDialect) Create(collection string, data JSONDoc) error {
+func (s *LocalDialect) Create(collection string, data JSONDoc) (JSONDoc, error) {
 	id := bson.NewObjectId()
 	sid := id.Hex()
 	data["_id"] = sid
 	key := collection + ":" + sid
 	uniques := []string{}
+	var newDoc JSONDoc
 
 	data["_created"] = time.Now()
 
 	err :=  validateFields(collection, data, s.Model, s.Config.Validations)
 	if err != nil {
-		return err
+		return newDoc,err
 	}
 
 	if val, ok := s.Model.Tables[collection]; ok {
 		for _, f := range val.Fields {
 			if f.Unique == true {
 				if data[f.Name] == nil {
-					return fmt.Errorf("Unique field %s, could not be null", f.Name)
+					return newDoc,fmt.Errorf("Unique field %s, could not be null", f.Name)
 				}
-				uniques = append(uniques, collection + ":" + cast.ToString(data[f.Name]))
+				uniques = append(uniques, "unique_" + collection + ":" + cast.ToString(data[f.Name]))
 			}
 		}
 	}
@@ -164,14 +166,18 @@ func (s *LocalDialect) Create(collection string, data JSONDoc) error {
 				return err
 			}
 		}
+		if ! contains(indexes, "idx_unique" + collection) {
+			err = tx.CreateIndex("idx_unique" + collection,  "unique_" + collection + ":*", buntdb.IndexString)
+			if err != nil {
+				return err
+			}
+		}
+
 
 		for _,s := range uniques {
-			v, err := tx.Get(s,true)
-			if err != nil {
-				return fmt.Errorf("Error getting uniques %v", err)
-			}
+			v, _ := tx.Get(s,true)
 			if v != "" {
-				return fmt.Errorf("Unique key violated - %s ", v)
+				return fmt.Errorf("Unique key violated - key[%s] ", s )
 			} else {
 				_ , _ ,err = tx.Set(s,sid,nil)
 				if err != nil {
@@ -187,8 +193,8 @@ func (s *LocalDialect) Create(collection string, data JSONDoc) error {
 		return err
 	})
 
-
-	return err
+	newDoc = data
+	return newDoc,err
 }
 
 func (s *LocalDialect) GetById(collection string, id string) (JSONDoc, error) {
@@ -221,43 +227,52 @@ func (s *LocalDialect) Update(collection string, data JSONDoc) error {
 		return fmt.Errorf("Field _id could not be null")
 	}
 	key := collection + ":" + sid
-	uniques := []string{}
 
 	err :=  validateFields(collection, data, s.Model, s.Config.Validations)
 	if err != nil {
 		return err
 	}
 
-	if val, ok := s.Model.Tables[collection]; ok {
-		for _, f := range val.Fields {
-			if f.Unique == true {
-				if data[f.Name] == nil {
-					return fmt.Errorf("Unique field %s, could not be null", f.Name)
-				}
-				uniques = append(uniques, collection + ":" + cast.ToString(data[f.Name]))
-			}
-		}
-	}
-
 
 	err = s.DB.Update(func(tx *buntdb.Tx) error {
+		item, err := tx.Get(key)
+		if err != nil {
+			return err
+		}
+		if item == "" {
+			return fmt.Errorf("Item id[%s] not found", sid)
+		}
+		var olddata JSONDoc
+		e := json.Unmarshal([]byte(item), &olddata)
+		if e != nil {
+			return e
+		}
 
-		for _,s := range uniques {
-			v, err := tx.Get(s,true)
-			if err != nil {
-				return fmt.Errorf("Error getting uniques %v", err)
-			}
-			if v != "" && v != cast.ToString(data["_id"]) {
-				return fmt.Errorf("Unique key violated - %s ", v)
-			} else {
-				_ , _ ,err = tx.Set(s,sid,nil)
-				if err != nil {
-					return err
+		if val, ok := s.Model.Tables[collection]; ok {
+			for _, f := range val.Fields {
+				if f.Unique == true {
+					if data[f.Name] == nil {
+						return fmt.Errorf("Unique field %s, could not be null", f.Name)
+					}
+					s :=  "unique_" + collection + ":" + cast.ToString(data[f.Name])
+					v, _ := tx.Get(s,true)
+
+					if v != "" && v != cast.ToString(data["_id"]) {
+						return fmt.Errorf("Unique key violated - %s ", v)
+					} else {
+						oldunique :=  "unique_" + collection + ":" + cast.ToString(olddata[f.Name])
+						_,_ = tx.Delete(oldunique)
+
+						_ , _ ,err = tx.Set(s,sid,nil)
+						if err != nil {
+							return err
+						}
+					}
 				}
 			}
 		}
 
-		_, _ ,err := tx.Set(key, data.ToString(),nil)
+		_, _ ,err = tx.Set(key, data.ToString(),nil)
 		if err != nil {
 			return err
 		}
@@ -268,17 +283,27 @@ func (s *LocalDialect) Update(collection string, data JSONDoc) error {
 	return err
 }
 
-func (s *LocalDialect) Delete(tableName string, id string) error {
+func (s *LocalDialect) Delete(collection string, id string) error {
 	err := s.DB.Update(func(tx *buntdb.Tx) error {
 
-		key := tableName + ":" + id
-		//KeyUnique := "unique:" + tableName + ":"
+		key := collection + ":" + id
 
 		_, err := tx.Delete(key)
 		if err != nil {
 			return err
 		}
-		return nil
+
+		err = tx.Ascend( "idx_unique" + collection,  func(key, value string) bool{
+			if value == id {
+				_, err := tx.Delete(key)
+				if err != nil {
+					return false
+				}
+			}
+			return true
+		})
+
+		return err
 	})
 
 	return err
@@ -318,7 +343,26 @@ func (s *LocalDialect) GetAll(tableName string, skip int, limit int, sorted stri
 }
 func (s *LocalDialect) GetOneByQuery(collection string, query map[string]interface{}) (JSONDoc, error) {
 	var data JSONDoc
-	return data, nil
+	err := s.DB.View(func(tx *buntdb.Tx) error {
+
+		err := tx.Ascend( "idx" + collection,  func(key, value string) bool{
+
+			res := gjson.Get(value,`email="jd@test.com"`)
+			if res.Exists() {
+				err := json.Unmarshal([]byte(value), &data)
+				if err != nil {
+					log.Println("Error when unmarshal data")
+				}
+				return false
+			}
+			return true
+
+		})
+		return err
+
+	})
+
+	return data, err
 }
 func (s *LocalDialect) GetManyByQuery(collection string, query map[string]interface{}) ([]JSONDoc, error) {
 	var data []JSONDoc

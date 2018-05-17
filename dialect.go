@@ -7,7 +7,7 @@ type Dialect interface {
 	InitDB(ConfigDB) error
 	CloseDB() error
 	Count(string) (int, error)
-	Create(string, JSONDoc) error
+	Create(string, JSONDoc) (JSONDoc,error)
 	GetById(string, string) (JSONDoc, error)
 	GetOneByQuery(string, map[string]interface{}) (JSONDoc, error)
 	GetManyByQuery(string, map[string]interface{}) ([]JSONDoc, error)
