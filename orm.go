@@ -3,7 +3,6 @@ package gorgo
 import (
 	"fmt"
 	"log"
-
 )
 
 type DB struct {
@@ -27,22 +26,20 @@ func NewDB(config ConfigDB) (*DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &DB{DialectDB:dialect},nil
+		return &DB{DialectDB: dialect}, nil
 	case "localdb":
 		dialect := &LocalDialect{}
 		err := dialect.InitDB(config)
 		if err != nil {
 			return nil, err
 		}
-		return &DB{DialectDB:dialect},nil
+		return &DB{DialectDB: dialect}, nil
 	default:
 		return nil, fmt.Errorf("[WARNING] dbtype not found", nil)
 	}
 
 	return nil, nil
 }
-
-
 
 func (d *DB) Create(collection string, data JSONDoc) (JSONDoc, error) {
 	return d.DialectDB.Create(collection, data)
@@ -76,7 +73,10 @@ func (d *DB) GetAll(collection string, page int, qtd int, sorted string) ([]JSON
 }
 
 func (d *DB) GetByID(collection string, id string) (JSONDoc, error) {
-	return d.DialectDB.GetById(collection,id)
+	return d.DialectDB.GetById(collection, id)
 
 }
 
+func (d *DB) GetOneByQuery(collectin string, query string) (JSONDoc, error) {
+	return d.DialectDB.GetOneByQuery(collectin, query)
+}

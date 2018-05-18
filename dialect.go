@@ -7,9 +7,9 @@ type Dialect interface {
 	InitDB(ConfigDB) error
 	CloseDB() error
 	Count(string) (int, error)
-	Create(string, JSONDoc) (JSONDoc,error)
+	Create(string, JSONDoc) (JSONDoc, error)
 	GetById(string, string) (JSONDoc, error)
-	GetOneByQuery(string, map[string]interface{}) (JSONDoc, error)
+	GetOneByQuery(string, string) (JSONDoc, error)
 	GetManyByQuery(string, map[string]interface{}) ([]JSONDoc, error)
 	GetAll(string, int, int, string) ([]JSONDoc, error)
 	GetAllBySearch(string, string, string, int, int, string) ([]JSONDoc, error)
@@ -20,7 +20,8 @@ type Dialect interface {
 
 //JSONDoc map string for interfaces like json
 type JSONDoc map[string]interface{}
-func (j *JSONDoc) ToString() string{
+
+func (j *JSONDoc) ToString() string {
 	encoded, e := json.Marshal(j)
 	if e != nil {
 		return ""

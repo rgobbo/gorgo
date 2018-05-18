@@ -2,20 +2,23 @@ package gorgo
 
 import (
 	"crypto/tls"
+	"encoding/json"
+	"fmt"
 	"net"
 	"time"
 
+	"log"
+
+	"github.com/rgobbo/watchfy"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"github.com/rgobbo/watchfy"
-	"log"
 )
 
 //MySQLDialect - dialect for mysql database
 type MongoDialect struct {
 	Session *mgo.Session
 	DBName  string
-	Model  *model
+	Model   *model
 }
 
 func (m *MongoDialect) InitDB(config ConfigDB) error {
@@ -26,7 +29,7 @@ func (m *MongoDialect) InitDB(config ConfigDB) error {
 			return err
 		}
 		if config.WatchModel == true {
-			go watchfy.NewWatcher([]string{config.ModelFile}, true, func(filename string){
+			go watchfy.NewWatcher([]string{config.ModelFile}, true, func(filename string) {
 				m.Model = new(model)
 				err := m.Model.LoadFile(config.ModelFile)
 				if err != nil {
@@ -34,6 +37,8 @@ func (m *MongoDialect) InitDB(config ConfigDB) error {
 				}
 			})
 		}
+	} else {
+		m.Model = new(model)
 	}
 
 	servers := config.Servers
@@ -62,7 +67,6 @@ func (m *MongoDialect) InitDB(config ConfigDB) error {
 	session.SetMode(mgo.Monotonic, true)
 	m.Session = session
 
-
 	m.DBName = dbname
 	return nil
 }
@@ -80,12 +84,12 @@ func (m *MongoDialect) Count(collection string) (int, error) {
 	return c.Count()
 }
 
-func (m *MongoDialect) Create(collection string, json JSONDoc) (JSONDoc,error) {
+func (m *MongoDialect) Create(collection string, json JSONDoc) (JSONDoc, error) {
 	ss := m.Session.Copy()
 	defer ss.Close()
 	c := ss.DB(m.DBName).C(collection)
 	json["_id"] = bson.NewObjectId()
-	return json,c.Insert(json)
+	return json, c.Insert(json)
 }
 
 func (m *MongoDialect) GetById(collection string, id string) (JSONDoc, error) {
@@ -97,12 +101,19 @@ func (m *MongoDialect) GetById(collection string, id string) (JSONDoc, error) {
 	return data, err
 }
 
-func (m *MongoDialect) GetOneByQuery(collection string, query map[string]interface{}) (JSONDoc, error) {
+func (m *MongoDialect) GetOneByQuery(collection string, query string) (JSONDoc, error) {
 	var data JSONDoc
 	ss := m.Session.Copy()
 	defer ss.Close()
 	c := ss.DB(m.DBName).C(collection)
-	err := c.Find(query).One(&data)
+
+	var qjson map[string]interface{}
+	err := json.Unmarshal([]byte(query), &qjson)
+	if err != nil {
+		return data, fmt.Errorf("Query parsing error:%v", err)
+	}
+
+	err = c.Find(qjson).One(&data)
 	return data, err
 }
 
