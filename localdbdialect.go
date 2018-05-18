@@ -10,7 +10,6 @@ import (
 	"github.com/rgobbo/watchfy"
 	"github.com/spf13/cast"
 	"github.com/tidwall/buntdb"
-	"github.com/tidwall/gjson"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -344,8 +343,8 @@ func (s *LocalDialect) GetOneByQuery(collection string, query string) (JSONDoc, 
 
 		err := tx.Ascend("idx"+collection, func(key, value string) bool {
 
-			res := gjson.Get(value, query)
-			if res.Exists() {
+			res := strings.Contains(value, query)
+			if res {
 				err := json.Unmarshal([]byte(value), &data)
 				if err != nil {
 					log.Println("Error when unmarshal data")
