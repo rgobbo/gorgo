@@ -342,7 +342,6 @@ func (s *LocalDialect) GetOneByQuery(collection string, query string) (JSONDoc, 
 	err := s.DB.View(func(tx *buntdb.Tx) error {
 
 		err := tx.Ascend("idx"+collection, func(key, value string) bool {
-
 			res := strings.Contains(value, query)
 			if res {
 				err := json.Unmarshal([]byte(value), &data)
