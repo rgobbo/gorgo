@@ -121,6 +121,25 @@ func (s *LocalDialect) Count(collection string) (int, error) {
 
 }
 
+func (s *LocalDialect) CountByWhere(collection string, query string) (int, error) {
+	var ret int
+	err := s.DB.View(func(tx *buntdb.Tx) error {
+		count := 0
+		err := tx.Ascend("idx"+collection, func(key, value string) bool {
+			res := strings.Contains(value, query)
+			if res {
+				count++
+			}
+			return true
+		})
+		ret = count
+		return err
+	})
+	return ret, err
+
+}
+
+
 func (s *LocalDialect) Create(collection string, data JSONDoc) (JSONDoc, error) {
 	id := bson.NewObjectId()
 	sid := id.Hex()
@@ -305,6 +324,42 @@ func (s *LocalDialect) Delete(collection string, id string) error {
 	return err
 }
 
+func (s *LocalDialect) DeleteByWhere(collection string, query string) error {
+	list, err := s. GetManyByQuery(collection , query )
+	if err != nil {
+		return err
+	}
+	err = s.DB.Update(func(tx *buntdb.Tx) error {
+
+	for _, obj := range list {
+		key := collection + ":" + obj["_id"].(string)
+
+		_, err := tx.Delete(key)
+		if err != nil {
+			return err
+		}
+
+		err = tx.Ascend("idx_unique"+collection, func(key, value string) bool {
+			if value == obj["_id"].(string) {
+				_, err := tx.Delete(key)
+				if err != nil {
+					return false
+				}
+			}
+			return true
+		})
+
+		return err
+
+	}
+
+	return nil
+	})
+
+	return err
+}
+
+
 func (s *LocalDialect) GetAll(tableName string, skip int, limit int, sorted string) ([]JSONDoc, error) {
 	var result []JSONDoc
 	count := 0
@@ -359,8 +414,27 @@ func (s *LocalDialect) GetOneByQuery(collection string, query string) (JSONDoc, 
 
 	return data, err
 }
-func (s *LocalDialect) GetManyByQuery(collection string, query map[string]interface{}) ([]JSONDoc, error) {
+func (s *LocalDialect) GetManyByQuery(collection string, query string) ([]JSONDoc, error) {
 	var data []JSONDoc
+	err := s.DB.View(func(tx *buntdb.Tx) error {
+
+		err := tx.Ascend("idx"+collection, func(key, value string) bool {
+			res := strings.Contains(value, query)
+			if res {
+				err := json.Unmarshal([]byte(value), &data)
+				if err != nil {
+					log.Println("Error when unmarshal data")
+				}
+
+			}
+			return true
+
+		})
+		return err
+
+	})
+
+	return data, err
 	return data, nil
 }
 func (s *LocalDialect) GetAllBySearch(collection string, text string, field string, page int, qtd int, sorted string) ([]JSONDoc, error) {

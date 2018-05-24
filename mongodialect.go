@@ -24,6 +24,7 @@ type MongoDialect struct {
 func (m *MongoDialect) InitDB(config ConfigDB) error {
 
 	if config.ModelFile != "" {
+		m.Model = new(model)
 		err := m.Model.LoadFile(config.ModelFile)
 		if err != nil {
 			return err
@@ -84,6 +85,19 @@ func (m *MongoDialect) Count(collection string) (int, error) {
 	return c.Count()
 }
 
+func (m *MongoDialect) CountByWhere(collection string, query string) (int, error) {
+	ss := m.Session.Copy()
+	defer ss.Close()
+	c := ss.DB(m.DBName).C(collection)
+	q := make(map[string]interface{})
+	err := json.Unmarshal([]byte(query), &q)
+	if err != nil {
+		return 0,err
+	}
+	return c.Find(q).Count()
+}
+
+
 func (m *MongoDialect) Create(collection string, json JSONDoc) (JSONDoc, error) {
 	ss := m.Session.Copy()
 	defer ss.Close()
@@ -117,12 +131,17 @@ func (m *MongoDialect) GetOneByQuery(collection string, query string) (JSONDoc, 
 	return data, err
 }
 
-func (m *MongoDialect) GetManyByQuery(collection string, query map[string]interface{}) ([]JSONDoc, error) {
+func (m *MongoDialect) GetManyByQuery(collection string, query string) ([]JSONDoc, error) {
 	var data []JSONDoc
 	ss := m.Session.Copy()
 	defer ss.Close()
 	c := ss.DB(m.DBName).C(collection)
-	err := c.Find(query).All(&data)
+	var qjson map[string]interface{}
+	err := json.Unmarshal([]byte(query), &qjson)
+	if err != nil {
+		return data, fmt.Errorf("Query parsing error:%v", err)
+	}
+	err = c.Find(qjson).All(&data)
 	return data, err
 }
 
@@ -170,6 +189,18 @@ func (m *MongoDialect) Delete(collection string, id string) error {
 	defer ss.Close()
 	c := ss.DB(m.DBName).C(collection)
 	return c.Remove(bson.M{"_id": bson.ObjectIdHex(id)})
+}
+
+func (m *MongoDialect) DeleteByWhere(collection string, query string) error {
+	ss := m.Session.Copy()
+	defer ss.Close()
+	c := ss.DB(m.DBName).C(collection)
+	q := make(map[string]interface{})
+	err := json.Unmarshal([]byte(query), &q)
+	if err != nil {
+		return err
+	}
+	return c.Remove(q)
 }
 
 func (m *MongoDialect) GetByGroup(collection string, query map[string]interface{}) (JSONDoc, error) {
