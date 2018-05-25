@@ -10,7 +10,7 @@ type Dialect interface {
 	Create(string, JSONDoc) (JSONDoc, error)
 	GetById(string, string) (JSONDoc, error)
 	GetOneByQuery(string, string) (JSONDoc, error)
-	GetManyByQuery(string, string) ([]JSONDoc, error)
+	GetManyByQuery(string, string, ...interface{}) ([]JSONDoc, error)
 	GetAll(string, int, int, string) ([]JSONDoc, error)
 	GetAllBySearch(string, string, string, int, int, string) ([]JSONDoc, error)
 	Update(string, JSONDoc) error

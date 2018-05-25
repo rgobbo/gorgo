@@ -414,7 +414,7 @@ func (s *LocalDialect) GetOneByQuery(collection string, query string) (JSONDoc, 
 
 	return data, err
 }
-func (s *LocalDialect) GetManyByQuery(collection string, query string) ([]JSONDoc, error) {
+func (s *LocalDialect) GetManyByQuery(collection string, query string, params ...interface{}) ([]JSONDoc, error) {
 	var data []JSONDoc
 	err := s.DB.View(func(tx *buntdb.Tx) error {
 

@@ -12,6 +12,8 @@ import (
 	"github.com/rgobbo/watchfy"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"strings"
+
 )
 
 //MySQLDialect - dialect for mysql database
@@ -102,7 +104,6 @@ func (m *MongoDialect) Create(collection string, json JSONDoc) (JSONDoc, error) 
 	ss := m.Session.Copy()
 	defer ss.Close()
 	c := ss.DB(m.DBName).C(collection)
-	json["_id"] = bson.NewObjectId()
 	return json, c.Insert(json)
 }
 
@@ -131,11 +132,15 @@ func (m *MongoDialect) GetOneByQuery(collection string, query string) (JSONDoc, 
 	return data, err
 }
 
-func (m *MongoDialect) GetManyByQuery(collection string, query string) ([]JSONDoc, error) {
+func (m *MongoDialect) GetManyByQuery(collection string, query string, params ...interface{}) ([]JSONDoc, error) {
 	var data []JSONDoc
 	ss := m.Session.Copy()
 	defer ss.Close()
 	c := ss.DB(m.DBName).C(collection)
+
+	squery := m.parseQuery(query, params...)
+	log.Println(squery)
+
 	var qjson map[string]interface{}
 	err := json.Unmarshal([]byte(query), &qjson)
 	if err != nil {
@@ -143,6 +148,14 @@ func (m *MongoDialect) GetManyByQuery(collection string, query string) ([]JSONDo
 	}
 	err = c.Find(qjson).All(&data)
 	return data, err
+}
+
+func (m *MongoDialect)parseQuery(query string, params ...interface{}) string {
+	for _, p:= range params {
+		ps := `"` + p.(string) + `"`
+		query = strings.Replace(query,"?", ps, 1)
+	}
+	return query
 }
 
 func (m *MongoDialect) GetAll(collection string, page int, qtd int, sorted string) ([]JSONDoc, error) {

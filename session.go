@@ -19,6 +19,7 @@ type Session struct {
 func (s *Session) Init() {
 	s.limit = 0
 	s.offset = 0
+	s.order = ""
 }
 
 func (s *Session) Where(query string, params ...interface{}) *Session {
@@ -41,6 +42,9 @@ func (s *Session) Offset(i int) *Session  {
 func (s *Session) Get()([]JSONDoc, error) {
 	if s.tableName == "" {
 		return []JSONDoc{}, fmt.Errorf("need to set a tablename")
+	}
+	if s.where != "" {
+		s.db.dialectDB.GetManyByQuery(s.tableName,s.where, s.params...)
 	}
 	return s.db.dialectDB.GetAll(s.tableName, s.offset, s.limit, s.order)
 }
