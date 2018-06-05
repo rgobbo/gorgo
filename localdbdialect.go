@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rgobbo/watchfy"
 	"github.com/spf13/cast"
 	"github.com/tidwall/buntdb"
 	"gopkg.in/mgo.v2/bson"
+	"github.com/rgobbo/fsmodify"
 )
 
 type LocalDialect struct {
@@ -26,8 +26,8 @@ func (s *LocalDialect) InitDB(config ConfigDB) error {
 		if err != nil {
 			return err
 		}
-		if config.WatchModel == true {
-			go watchfy.NewWatcher([]string{config.ModelFile}, true, func(filename string) {
+		if config.WatchInterval > 0 {
+			go fsmodify.NewWatcher(config.ModelFile,"", config.WatchInterval , func(filename string) {
 				s.Model = new(model)
 				err := s.Model.LoadFile(config.ModelFile)
 				if err != nil {

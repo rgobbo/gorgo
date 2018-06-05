@@ -9,11 +9,11 @@ import (
 
 	"log"
 
-	"github.com/rgobbo/watchfy"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"strings"
 
+	"github.com/rgobbo/fsmodify"
 )
 
 //MySQLDialect - dialect for mysql database
@@ -31,8 +31,8 @@ func (m *MongoDialect) InitDB(config ConfigDB) error {
 		if err != nil {
 			return err
 		}
-		if config.WatchModel == true {
-			go watchfy.NewWatcher([]string{config.ModelFile}, true, func(filename string) {
+		if config.WatchInterval > 0 {
+			go fsmodify.NewWatcher(config.ModelFile, "",  config.WatchInterval, func(filename string) {
 				m.Model = new(model)
 				err := m.Model.LoadFile(config.ModelFile)
 				if err != nil {

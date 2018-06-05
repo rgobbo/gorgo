@@ -14,7 +14,7 @@ type ConfigDB struct {
 	ShowSQL bool
 	ModelFile string
 	SyncDB string
-	WatchModel bool
+	WatchInterval int
 	Validations FuncMap
 }
 
