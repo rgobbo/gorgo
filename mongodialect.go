@@ -9,9 +9,10 @@ import (
 
 	"log"
 
+	"strings"
+
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"strings"
 
 	"github.com/rgobbo/fsmodify"
 )
@@ -32,7 +33,7 @@ func (m *MongoDialect) InitDB(config ConfigDB) error {
 			return err
 		}
 		if config.WatchInterval > 0 {
-			go fsmodify.NewWatcher(config.ModelFile, "",  config.WatchInterval, func(filename string) {
+			go fsmodify.NewWatcher(config.ModelFile, "", config.WatchInterval, func(filename string) {
 				m.Model = new(model)
 				err := m.Model.LoadFile(config.ModelFile)
 				if err != nil {
@@ -44,7 +45,13 @@ func (m *MongoDialect) InitDB(config ConfigDB) error {
 		m.Model = new(model)
 	}
 
-	servers := config.Servers
+	var servers []string
+	if len(config.Servers) > 0 {
+		servers = config.Servers
+	} else {
+		servers = []string{config.Server}
+	}
+
 	dbname := config.Database
 	user := config.User
 	pass := config.Password
@@ -94,11 +101,10 @@ func (m *MongoDialect) CountByWhere(collection string, query string) (int, error
 	q := make(map[string]interface{})
 	err := json.Unmarshal([]byte(query), &q)
 	if err != nil {
-		return 0,err
+		return 0, err
 	}
 	return c.Find(q).Count()
 }
-
 
 func (m *MongoDialect) Create(collection string, json JSONDoc) (JSONDoc, error) {
 	ss := m.Session.Copy()
@@ -150,10 +156,10 @@ func (m *MongoDialect) GetManyByQuery(collection string, query string, params ..
 	return data, err
 }
 
-func (m *MongoDialect)parseQuery(query string, params ...interface{}) string {
-	for _, p:= range params {
+func (m *MongoDialect) parseQuery(query string, params ...interface{}) string {
+	for _, p := range params {
 		ps := `"` + p.(string) + `"`
-		query = strings.Replace(query,"?", ps, 1)
+		query = strings.Replace(query, "?", ps, 1)
 	}
 	return query
 }
