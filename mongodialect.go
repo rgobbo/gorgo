@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"reflect"
 	"time"
+
+	"github.com/spf13/cast"
 
 	"log"
 
@@ -118,6 +121,9 @@ func (m *MongoDialect) GetById(collection string, id string) (JSONDoc, error) {
 	ss := m.Session.Copy()
 	defer ss.Close()
 	c := ss.DB(m.DBName).C(collection)
+	if !bson.IsObjectIdHex(id) {
+		return data, fmt.Errorf("Mongo ObjectID is invalid")
+	}
 	err := c.Find(bson.M{"_id": bson.ObjectIdHex(id)}).One(&data)
 	return data, err
 }
@@ -148,7 +154,7 @@ func (m *MongoDialect) GetManyByQuery(collection string, query string, params ..
 	log.Println(squery)
 
 	var qjson map[string]interface{}
-	err := json.Unmarshal([]byte(query), &qjson)
+	err := json.Unmarshal([]byte(squery), &qjson)
 	if err != nil {
 		return data, fmt.Errorf("Query parsing error:%v", err)
 	}
@@ -158,8 +164,13 @@ func (m *MongoDialect) GetManyByQuery(collection string, query string, params ..
 
 func (m *MongoDialect) parseQuery(query string, params ...interface{}) string {
 	for _, p := range params {
-		ps := `"` + p.(string) + `"`
-		query = strings.Replace(query, "?", ps, 1)
+		if reflect.TypeOf(p).String() == "string" {
+			ps := `"` + p.(string) + `"`
+			query = strings.Replace(query, "?", ps, 1)
+		} else {
+			query = strings.Replace(query, "?", cast.ToString(p), 1)
+		}
+
 	}
 	return query
 }

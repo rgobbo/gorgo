@@ -43,7 +43,7 @@ func (s *Session) Get() ([]JSONDoc, error) {
 		return []JSONDoc{}, fmt.Errorf("need to set a tablename")
 	}
 	if s.where != "" {
-		s.orm.dialectDB.GetManyByQuery(s.tableName, s.where, s.params...)
+		return s.orm.dialectDB.GetManyByQuery(s.tableName, s.where, s.params...)
 	}
 	return s.orm.dialectDB.GetAll(s.tableName, s.offset, s.limit, s.order)
 }
