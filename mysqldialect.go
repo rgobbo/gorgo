@@ -107,6 +107,10 @@ func (m *MySQLDialect) Create(tableName string, data JSONDoc) (int64, error) {
 	return lastId, nil
 }
 
+func (s *MySQLDialect) CreateInterface(collection string, i interface{}) error {
+	return nil
+}
+
 func (m *MySQLDialect) Update(tableName string, data JSONDoc) (int64, error) {
 
 	m.CachedMutex.Lock()

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rgobbo/fsmodify"
 	"github.com/spf13/cast"
 	"github.com/tidwall/buntdb"
 	"gopkg.in/mgo.v2/bson"
-	"github.com/rgobbo/fsmodify"
 )
 
 type LocalDialect struct {
@@ -27,7 +27,7 @@ func (s *LocalDialect) InitDB(config ConfigDB) error {
 			return err
 		}
 		if config.WatchInterval > 0 {
-			go fsmodify.NewWatcher(config.ModelFile,"", config.WatchInterval , func(filename string) {
+			go fsmodify.NewWatcher(config.ModelFile, "", config.WatchInterval, func(filename string) {
 				s.Model = new(model)
 				err := s.Model.LoadFile(config.ModelFile)
 				if err != nil {
@@ -139,7 +139,6 @@ func (s *LocalDialect) CountByWhere(collection string, query string) (int, error
 
 }
 
-
 func (s *LocalDialect) Create(collection string, data JSONDoc) (JSONDoc, error) {
 	id := bson.NewObjectId()
 	sid := id.Hex()
@@ -212,6 +211,10 @@ func (s *LocalDialect) Create(collection string, data JSONDoc) (JSONDoc, error) 
 
 	newDoc = data
 	return newDoc, err
+}
+
+func (s *LocalDialect) CreateInterface(collection string, i interface{}) error {
+	return nil
 }
 
 func (s *LocalDialect) GetById(collection string, id string) (JSONDoc, error) {
@@ -325,40 +328,39 @@ func (s *LocalDialect) Delete(collection string, id string) error {
 }
 
 func (s *LocalDialect) DeleteByWhere(collection string, query string) error {
-	list, err := s. GetManyByQuery(collection , query )
+	list, err := s.GetManyByQuery(collection, query)
 	if err != nil {
 		return err
 	}
 	err = s.DB.Update(func(tx *buntdb.Tx) error {
 
-	for _, obj := range list {
-		key := collection + ":" + obj["_id"].(string)
+		for _, obj := range list {
+			key := collection + ":" + obj["_id"].(string)
 
-		_, err := tx.Delete(key)
-		if err != nil {
+			_, err := tx.Delete(key)
+			if err != nil {
+				return err
+			}
+
+			err = tx.Ascend("idx_unique"+collection, func(key, value string) bool {
+				if value == obj["_id"].(string) {
+					_, err := tx.Delete(key)
+					if err != nil {
+						return false
+					}
+				}
+				return true
+			})
+
 			return err
+
 		}
 
-		err = tx.Ascend("idx_unique"+collection, func(key, value string) bool {
-			if value == obj["_id"].(string) {
-				_, err := tx.Delete(key)
-				if err != nil {
-					return false
-				}
-			}
-			return true
-		})
-
-		return err
-
-	}
-
-	return nil
+		return nil
 	})
 
 	return err
 }
-
 
 func (s *LocalDialect) GetAll(tableName string, skip int, limit int, sorted string) ([]JSONDoc, error) {
 	var result []JSONDoc

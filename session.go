@@ -62,6 +62,13 @@ func (s *Session) Insert(data JSONDoc) (JSONDoc, error) {
 	return s.orm.dialectDB.Create(s.tableName, data)
 }
 
+func (s *Session) InsertStruct(i interface{}) error {
+	if s.tableName == "" {
+		return fmt.Errorf("need to set a tablename")
+	}
+	return s.orm.dialectDB.CreateInterface(s.tableName, i)
+}
+
 func (s *Session) Update(data JSONDoc) error {
 	if s.tableName == "" {
 		return fmt.Errorf("need to set a tablename")

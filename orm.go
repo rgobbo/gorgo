@@ -89,6 +89,11 @@ func (d *ORM) Insert(data JSONDoc) (JSONDoc, error) {
 	return session.Insert(data)
 }
 
+func (d *ORM) InsertStruct(i interface{}) error {
+	session := d.NewSession()
+	return session.InsertStruct(i)
+}
+
 func (d *ORM) Update(data JSONDoc) error {
 	session := d.NewSession()
 	return session.Update(data)

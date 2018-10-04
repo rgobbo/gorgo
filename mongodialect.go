@@ -116,6 +116,13 @@ func (m *MongoDialect) Create(collection string, json JSONDoc) (JSONDoc, error) 
 	return json, c.Insert(json)
 }
 
+func (m *MongoDialect) CreateInterface(collection string, i interface{}) error {
+	ss := m.Session.Copy()
+	defer ss.Close()
+	c := ss.DB(m.DBName).C(collection)
+	return c.Insert(i)
+}
+
 func (m *MongoDialect) GetById(collection string, id string) (JSONDoc, error) {
 	var data JSONDoc
 	ss := m.Session.Copy()
